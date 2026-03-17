@@ -29,32 +29,38 @@ app.post("/gps", async (req, res) => {
   if (!collection) return res.status(503).json({ error: "DB not ready" });
 
   try {
-    const { lat, lng, speed, altitude, satellites, hdop } = req.body;
+    const { deviceId, lat, lng, speed, altitude, satellites, hdop } = req.body;
 
-    if (!lat || !lng) {
-      return res.status(400).json({ error: "Missing lat/lng" });
+    if (!lat || !lng || !deviceId) {
+      return res.status(400).json({ error: "Missing deviceId/lat/lng" });
     }
 
-    const doc = {
-      location: {
-        type: "Point",
-        coordinates: [lng, lat]
-      },
-      speed,
-      altitude,
-      satellites,
-      hdop,
-      timestamp: new Date()
+    const updateDoc = {
+      $set: {
+        location: {
+          type: "Point",
+          coordinates: [lng, lat]
+        },
+        speed,
+        altitude,
+        satellites,
+        hdop,
+        timestamp: new Date()
+      }
     };
 
-    await collection.insertOne(doc);
-    res.status(201).json({ ok: true });
+    await collection.updateOne(
+      { deviceId: deviceId },   // 🔍 filter (find existing doc)
+      updateDoc,
+      { upsert: true }         // 🔁 create if not exists
+    );
+
+    res.status(200).json({ ok: true });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on PORT ${PORT}`));
